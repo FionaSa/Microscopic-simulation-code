@@ -7,6 +7,16 @@
 #include <string.h>
 #include <errno.h>
 
+void inits()
+{
+    cin = malloc(sizeof(cin) * N_particules_total + 1);
+
+    forces_np = malloc(sizeof(struct Forces) * N_particules_total);
+    forces_p = malloc(sizeof(struct Forces) * N_particules_total);
+
+    Ndl = 3 * (N_particules_total - 3);
+}
+
 void sauvegarde_deb(FILE *fp, int xdim, int ydim, int zdim)
 {
 
@@ -27,9 +37,9 @@ void sauvegarde_fin(FILE *fp)
     fprintf(fp, "TER\nENDMDL\n");
 }
 
-void simulation_p(int iterations, struct Particle *particles)
+void simulation_p(int iterations, struct Particle *particles, char *output, int print)
 {
-    FILE *fp = fopen("output_p.pdb", "w");
+    FILE *fp = fopen(output, "w");
 
     if (!fp)
         perror("Erreur alloc file");
@@ -43,8 +53,16 @@ void simulation_p(int iterations, struct Particle *particles)
     for (int i = 1; i <= iterations; i++)
     {
         sauvegarde_deb2(fp, i);
+        if (print)
+            printf("Itération %d\n", i);
+        verlet(particles, print);
+        periodique(particles, print);
+
         for (int j = 0; j < N_particules_total; j++)
         {
+            if (i % m_step == 0)
+                berendsen(particles, print);
+
             // a_i = 1/m_i * ∑_(j≠i) f_ij
 
             double accx = frac * forces_p[j].fx;
@@ -57,9 +75,9 @@ void simulation_p(int iterations, struct Particle *particles)
 
             // r(t+Δt) = r(t) + v(t)Δt + 0.5a(t)Δt^2
             // Δt = i
-            double x = particles[j].x + vi * (i) + 0.5 * accx * (i * i);
-            double y = particles[j].y + vi * (i) + 0.5 * accy * (i * i);
-            double z = particles[j].z + vi * (i) + 0.5 * accz * (i * i);
+            double x = particles[j].x + cin[i].px + 0.5 * accx * (i * i);
+            double y = particles[j].y + cin[i].py + 0.5 * accy * (i * i);
+            double z = particles[j].z + cin[i].pz + 0.5 * accz * (i * i);
 
             sauvegarde_mid(fp, x, y, z, label, j);
 
@@ -69,11 +87,12 @@ void simulation_p(int iterations, struct Particle *particles)
     }
 
     fclose(fp);
+    printf("\033[32mSIMULATION NON PERIODIQUE\n\tSauvegardée dans le fichier\033[38;5;54m %s\033[32m avec\033[38;5;54m %d \033[32mitérations\n", output, iterations);
 }
 
-void simulation_np(int iterations, struct Particle *particles)
+void simulation_np(int iterations, struct Particle *particles, char *output, int print)
 {
-    FILE *fp = fopen("output_np.pdb", "w");
+    FILE *fp = fopen(output, "w");
 
     if (!fp)
         perror("Erreur alloc file");
@@ -87,8 +106,15 @@ void simulation_np(int iterations, struct Particle *particles)
     for (int i = 1; i <= iterations; i++)
     {
         sauvegarde_deb2(fp, i);
+        if (print)
+            printf("Itération %d\n", i);
+        verlet(particles, print);
+        non_periodique(particles, print);
         for (int j = 0; j < N_particules_total; j++)
         {
+            if (i % m_step == 0)
+                berendsen(particles, print);
+
             // a_i = 1/m_i * ∑_(j≠i) f_ij
 
             double accx = frac * forces_np[j].fx;
@@ -101,9 +127,9 @@ void simulation_np(int iterations, struct Particle *particles)
 
             // r(t+Δt) = r(t) + v(t)Δt + 0.5a(t)Δt^2
             // Δt = i
-            double x = particles[j].x + vi * (i) + 0.5 * accx * (i * i);
-            double y = particles[j].y + vi * (i) + 0.5 * accy * (i * i);
-            double z = particles[j].z + vi * (i) + 0.5 * accz * (i * i);
+            double x = particles[j].x + cin[i].px + 0.5 * accx * (i * i);
+            double y = particles[j].y + cin[i].py + 0.5 * accy * (i * i);
+            double z = particles[j].z + cin[i].pz + 0.5 * accz * (i * i);
 
             sauvegarde_mid(fp, x, y, z, label, j);
 
@@ -113,6 +139,7 @@ void simulation_np(int iterations, struct Particle *particles)
     }
 
     fclose(fp);
+    printf("\033[38;5;40mSIMULATION PERIODIQUE\n\tSauvegardée dans le fichier \033[38;5;54m%s \033[38;5;40mavec \033[38;5;54m%d \033[38;5;40mitérations\n", output, iterations);
 }
 
 inline double calcul_energie(double r_frac6, double r_frac3)
@@ -120,25 +147,18 @@ inline double calcul_energie(double r_frac6, double r_frac3)
     return epislon_etoile * (r_frac6 - 2 * r_frac3);
 }
 
-double non_periodique(struct Particle *particle)
+void non_periodique(struct Particle *particle, int print)
 {
-    double energie = 0;
-
-    forces_np = malloc(sizeof(struct Forces) * N_particules_total);
-    forces_p = malloc(sizeof(struct Forces) * N_particules_total);
-
-    double sum = 0;
-
     // init forces
     for (int i = 0; i < N_particules_total; i++)
     {
         forces_np[i].fx = 0;
-        forces_p[i].fx = 0;
         forces_np[i].fy = 0;
-        forces_p[i].fy = 0;
         forces_np[i].fz = 0;
-        forces_p[i].fz = 0;
     }
+    double energie = 0;
+
+    double sum = 0;
 
     for (int i = 0; i < N_particules_total; i++)
     {
@@ -212,18 +232,25 @@ double non_periodique(struct Particle *particle)
 
     energie *= 4;
 
-    printf("\033[32mNON PERIODIQUE\n\tEnergie: \033[37m%lf\033[38;5;54m J\n\t\033[32mSomme des forces = \033[37m%lf\033[38;5;54m N , \033[37m%e\033[38;5;54m N\n", energie, sum, sum);
-
-    return energie;
+    if (print)
+        printf("\033[32mNON PERIODIQUE\n\tEnergie: \033[37m%lf\033[38;5;54m J\n\t\033[32mSomme des forces = \033[37m%lf\033[38;5;54m N , \033[37m%e\033[38;5;54m N\n", energie, sum, sum);
 }
 
-double periodique(struct Particle *particle)
+void periodique(struct Particle *particle, int print)
 {
     double Sym[] = {0, 0, 0, 0, 0, L, 0, L, 0, 0, L, L, L, 0, 0, L, 0, L, L, L, 0, L, L, L, L, L, -L, L, -L, L, L, -L, -L, -L, L, L, -L, L, -L, -L, -L, L, -L, -L, -L, 0, 0, -L, 0, -L, 0, 0, -L, -L, -L, 0, 0, -L, 0, -L, -L, -L, 0, L, 0, -L, L, -L, 0, -L, 0, L, 0, L, -L, 0, -L, L, -L, L, 0};
 
     double energie = 0;
 
     double forces = 0;
+
+    // init forces
+    for (int i = 0; i < N_particules_total; i++)
+    {
+        forces_p[i].fx = 0;
+        forces_p[i].fy = 0;
+        forces_p[i].fz = 0;
+    }
 
     for (int p = 0; p < N_sym; p = p + 3)
     {
@@ -292,9 +319,8 @@ double periodique(struct Particle *particle)
 
     energie *= (4 * epislon_etoile) / 2;
 
-    printf("\033[38;5;40mPERIODIQUE\n\tEnergie = \033[37m%lf\033[38;5;54m J\n\t\033[38;5;40mSomme des forces = \033[37m%lf\033[38;5;54m N, \033[37m%e\033[38;5;54m N\n", energie, forces, forces);
-
-    return energie;
+    if (print)
+        printf("\033[38;5;40mPERIODIQUE\n\tEnergie = \033[37m%lf\033[38;5;54m J\n\t\033[38;5;40mSomme des forces = \033[37m%lf\033[38;5;54m N, \033[37m%e\033[38;5;54m N\n", energie, forces, forces);
 }
 
 double fonction_signe(double num)
@@ -305,14 +331,11 @@ double fonction_signe(double num)
         return -1;
 }
 
-double calcul_energie_cinetique(struct Particle *particle)
+// Verlet
+double verlet(struct Particle *particle, int print)
 {
     srand(time(NULL));
-    Ndl = 3 * (N_particules_total - 3);
-
     double energie = 0;
-
-    cin = malloc(sizeof(cin) * N_particules_total + 1);
 
     double Px = 0, Py = 0, Pz = 0;
 
@@ -379,29 +402,31 @@ double calcul_energie_cinetique(struct Particle *particle)
         temperature = (1 / (Ndl * CONSTANTE_R)) * energie_cin;
         energie_cin = tmp * energie;
 
-        // 4
-        cin[i + 1].px -= Px;
-        cin[i + 1].py -= Py;
-        cin[i + 1].pz -= Pz;
-
         // 3
         cin[i + 1].px *= RAPPORT;
         cin[i + 1].py *= RAPPORT;
         cin[i + 1].pz *= RAPPORT;
 
-        // printf("Temp = %lf %lf %lf  %lf %lf %lf %lf %lf %lf %lf\n", cin[i].px, cin[i].py, cin[i].pz, temperature, energie_cin, Px, Py, Pz, energie, tmp);
+        // 4
+        cin[i + 1].px -= Px;
+        cin[i + 1].py -= Py;
+        cin[i + 1].pz -= Pz;
     }
 
-    /*cin[i + 1].px *= sqrt(temperature / T0);
-    cin[i + 1].py *= sqrt(temperature / T0);
-    cin[i + 1].pz *= sqrt(temperature / T0);*/
+    for (int i = 0; i < N_particules_total; i++)
+    {
+        particle[i].x += cin[i].px / m;
+        particle[i].y += cin[i].py / m;
+        particle[i].z += cin[i].pz / m;
+    }
 
-    printf("\033[036mENERGIE CINETIQUE\n\033[036m\tEnergie: \033[37m%lf\033[38;5;54m J\n\t\033[036mTempérature: \033[37m%lf\033[38;5;54m K\n", energie_cin, temperature);
+    if (print)
+        printf("\033[036mENERGIE CINETIQUE\n\033[036m\tEnergie: \033[37m%lf\033[38;5;54m J\n\t\033[036mTempérature: \033[37m%lf\033[38;5;54m K\n", energie_cin, temperature);
 
     return energie_cin;
 }
 
-double calcul_energie_cinetique_berendsen(struct Particle *particle)
+void berendsen(struct Particle *particle, int print)
 {
     srand(time(NULL));
     Ndl = 3 * (N_particules_total - 3);
@@ -436,15 +461,16 @@ double calcul_energie_cinetique_berendsen(struct Particle *particle)
         cin[i + 1].pz += a * cin[i + 1].pz;
     }
 
-    printf("\033[34mBERENDSEN\n\tEnergie cinétique: \033[37m%lf\033[38;5;54m J\n", energie_cin);
-    printf("\t\033[34mTempérature:\033[37m %lf\033[38;5;54m K\n", temperature);
-
-    return energie;
+    if (print)
+    {
+        printf("\033[34mBERENDSEN\n\tEnergie cinétique: \033[37m%lf\033[38;5;54m J\n", energie_cin);
+        printf("\t\033[34mTempérature:\033[37m %lf\033[38;5;54m K\n", temperature);
+    }
 }
 
-struct Particle *read_file(struct Particle *particle)
+struct Particle *read_file(struct Particle *particle, char *input)
 {
-    FILE *in = fopen("./data/particule.xyz", "r");
+    FILE *in = fopen(input, "r");
     if (in == NULL)
         return perror("Failed: "), -1;
 
@@ -466,7 +492,7 @@ struct Particle *read_file(struct Particle *particle)
 
     N_particules_total = i;
 
-    printf("Particules totales = %d\n", N_particules_total);
+    printf("\033[38;5;65mParticules totales = \033[38;5;60m%d\n", N_particules_total);
 
     fclose(in);
 
@@ -477,25 +503,64 @@ int main(int argc, char const *argv[])
 {
     struct Particle *particle = malloc(sizeof(*particle));
 
-    if ((particle = read_file(particle)) == -1)
-        return printf("Erreur lecture des coordonnées\n"), -1;
+    char *input = "./data/particule.xyz";
+
+    char *output_p = "./data/output_p.pdb";
+
+    char *output_np = "./data/output_np.pdb";
 
     int iterations = 1000;
 
-    if (argc > 1)
-        iterations = atoi(argv[1]);
+    int print = 0;
 
-    // printf("%lf\n", particle[0].x);
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--input") == 0 && i + 1 < argc)
+        {
+            input = malloc(strlen(argv[i + 1]));
 
-    non_periodique(particle);
-    periodique(particle);
+            sprintf(input, "./data/%s", argv[i + 1]);
+        }
+        else if (strcmp(argv[i], "--outputp") == 0 && i + 1 < argc)
+        {
+            output_p = malloc(strlen(argv[i + 1]));
+            sprintf(output_p, "./data/%s", argv[i + 1]);
+        }
+        else if (strcmp(argv[i], "--outputnp") == 0 && i + 1 < argc)
+        {
+            output_np = malloc(strlen(argv[i + 1]));
+            sprintf(output_np, "./data/%s", argv[i + 1]);
+        }
+        else if (strcmp(argv[i], "--iterations") == 0 && i + 1 < argc)
+        {
+            iterations = atoi(argv[i + 1]);
+        }
 
-    calcul_energie_cinetique(particle);
+        else if (strcmp(argv[i], "--print") == 0)
+        {
+            print = 1;
+        }
+        else if (strcmp(argv[i], "--help") == 0)
+        {
+            printf("\033[38;5;50mCommands:\n--input \033[38;5;20m<name>\033[38;5;50m\n--outputp \033[38;5;20m<name>\033[38;5;50m\n--outputnp \033[38;5;20m<name\033[38;5;50m\n--iterations \033[38;5;20m<num>\033[38;5;50m\n--print\n--help\n");
+            exit(0);
+        }
+    }
 
-    calcul_energie_cinetique_berendsen(particle);
+    if ((particle = read_file(particle, input)) == -1)
+        return printf("Erreur lecture des coordonnées\n"), -1;
 
-    simulation_np(iterations, particle);
-    simulation_p(iterations, particle);
+    inits();
+
+    non_periodique(particle, 1);
+    periodique(particle, 1);
+
+    verlet(particle, 1);
+
+    berendsen(particle, 1);
+
+    simulation_np(iterations, particle, output_np, print);
+    simulation_p(iterations, particle, output_p, print);
 
     return 0;
 }
