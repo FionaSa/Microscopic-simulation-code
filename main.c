@@ -7,6 +7,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define fonction_signe(A) ((A) <= (0.5) ? (1) : (-1))
+
 void inits()
 {
     cin = malloc(sizeof(cin) * N_particules_total + 1);
@@ -252,7 +254,7 @@ void periodique(struct Particle *particle, int print)
         forces_p[i].fz = 0;
     }
 
-   for (int p = 0; p < N_sym; p = p + 3)
+    for (int p = 0; p < N_sym; p = p + 3)
     {
         for (int i = 0; i < N_particules_total; i++)
         {
@@ -321,14 +323,6 @@ void periodique(struct Particle *particle, int print)
 
     if (print)
         printf("\033[38;5;40mPERIODIQUE\n\tEnergie = \033[37m%lf\033[38;5;54m J\n\t\033[38;5;40mSomme des forces = \033[37m%lf\033[38;5;54m N, \033[37m%e\033[38;5;54m N\n", energie, forces, forces);
-}
-
-double fonction_signe(double num)
-{
-    if (num <= 0.5)
-        return 1;
-    else
-        return -1;
 }
 
 // Verlet
