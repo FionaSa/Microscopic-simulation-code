@@ -252,18 +252,18 @@ void periodique(struct Particle *particle, int print)
         forces_p[i].fz = 0;
     }
 
-    for (int p = 0; p < N_sym; p = p + 3)
+   for (int p = 0; p < N_sym; p = p + 3)
     {
         for (int i = 0; i < N_particules_total; i++)
         {
             for (int j = i + 1; j < N_particules_total; j++)
             {
 
-                double x = particle[j].x + Sym[p];
-                double y = particle[j].y + Sym[p + 1];
-                double z = particle[j].z + Sym[p + 2];
+                double x = particle[i].x - particle[j].x + Sym[p];
+                double y = particle[i].y - particle[j].y + Sym[p + 1];
+                double z = particle[i].z - particle[j].z + Sym[p + 2];
 
-                double rij = (particle[i].x - x) * (particle[i].x - x) + (particle[i].y - y) * (particle[i].y - y) + (particle[i].z - z) * (particle[i].z - z);
+                double rij = (x) * (x) + (y) * (y) + (z) * (z);
 
                 if (rij < (R_cut * R_cut))
                 {
