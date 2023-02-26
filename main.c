@@ -59,11 +59,10 @@ void simulation_p(int iterations, struct Particle *particles, char *output, int 
             printf("Itération %d\n", i);
         verlet(particles, print);
         periodique(particles, print);
-
+        if (i % m_step == 0)
+            berendsen(particles, print);
         for (int j = 0; j < N_particules_total; j++)
         {
-            if (i % m_step == 0)
-                berendsen(particles, print);
 
             // a_i = 1/m_i * ∑_(j≠i) f_ij
 
@@ -89,7 +88,7 @@ void simulation_p(int iterations, struct Particle *particles, char *output, int 
     }
 
     fclose(fp);
-    printf("\033[32mSIMULATION NON PERIODIQUE\n\tSauvegardée dans le fichier\033[38;5;54m %s\033[32m avec\033[38;5;54m %d \033[32mitérations\n", output, iterations);
+    printf("\033[38;5;40mSIMULATION PERIODIQUE\n\tSauvegardée dans le fichier \033[38;5;54m%s \033[38;5;40mavec \033[38;5;54m%d \033[38;5;40mitérations et \033[38;5;54m%d \033[38;5;40mm_steps\n", output, iterations, m_step);
 }
 
 void simulation_np(int iterations, struct Particle *particles, char *output, int print)
@@ -112,10 +111,10 @@ void simulation_np(int iterations, struct Particle *particles, char *output, int
             printf("Itération %d\n", i);
         verlet(particles, print);
         non_periodique(particles, print);
+        if (i % m_step == 0)
+            berendsen(particles, print);
         for (int j = 0; j < N_particules_total; j++)
         {
-            if (i % m_step == 0)
-                berendsen(particles, print);
 
             // a_i = 1/m_i * ∑_(j≠i) f_ij
 
@@ -141,7 +140,7 @@ void simulation_np(int iterations, struct Particle *particles, char *output, int
     }
 
     fclose(fp);
-    printf("\033[38;5;40mSIMULATION PERIODIQUE\n\tSauvegardée dans le fichier \033[38;5;54m%s \033[38;5;40mavec \033[38;5;54m%d \033[38;5;40mitérations\n", output, iterations);
+    printf("\033[32mSIMULATION NON PERIODIQUE\n\tSauvegardée dans le fichier\033[38;5;54m %s\033[32m avec\033[38;5;54m %d \033[32mitérations et \033[38;5;54m%d \033[32mm_steps\n", output, iterations, m_step);
 }
 
 inline double calcul_energie(double r_frac6, double r_frac3)
@@ -415,7 +414,7 @@ double verlet(struct Particle *particle, int print)
     }
 
     if (print)
-        printf("\033[036mENERGIE CINETIQUE\n\033[036m\tEnergie: \033[37m%lf\033[38;5;54m J\n\t\033[036mTempérature: \033[37m%lf\033[38;5;54m K\n", energie_cin, temperature);
+        printf("\033[036mVERLET\n\033[036m\tEnergie cinétique: \033[37m%lf\033[38;5;54m J\n\t\033[036mTempérature: \033[37m%lf\033[38;5;54m K\n", energie_cin, temperature);
 
     return energie_cin;
 }
@@ -529,7 +528,10 @@ int main(int argc, char const *argv[])
         {
             iterations = atoi(argv[i + 1]);
         }
-
+        else if (strcmp(argv[i], "--steps") == 0 && i + 1 < argc)
+        {
+            m_step = atoi(argv[i + 1]);
+        }
         else if (strcmp(argv[i], "--print") == 0)
         {
             print = 1;

@@ -1,15 +1,15 @@
 #pragma once
 
 int N_particules_total = 0;
-double epislon_etoile = 0.2;
-double r_etoile = 3;
-int N_sym = 27;
-int R_cut = 10;
-double L = 30;
-int m = 18;
-double CONSTANTE_R = 0.00199;
+#define epislon_etoile 0.2
+#define r_etoile 3
+#define N_sym 27
+#define R_cut 10
+#define L 30
+#define m 18
+#define CONSTANTE_R 0.00199
 double Ndl;
-double T0 = 300;
+#define T0 300
 double k = 1.380649E-23;
 int m_step = 5;
 
