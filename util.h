@@ -32,3 +32,5 @@ struct Cinetique *cin;
 extern inline double calcul_energie( double r_frac6, double r_frac3);
 
 struct Forces *forces_np;
+
+struct Forces *forces_p;
