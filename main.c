@@ -199,35 +199,27 @@ void non_periodique(struct Particle *particle, int print)
 
             sum += tmp;
 
+            forces_np[j].fx -= tmp;
+
+            sum -= tmp;
+
             tmp = calc * (y);
 
             forces_np[i].fy += tmp;
 
             sum += tmp;
+            forces_np[j].fy -= tmp;
+
+            sum -= tmp;
 
             tmp = calc * (z);
 
             forces_np[i].fz += tmp;
 
             sum += tmp;
+            forces_np[j].fz -= tmp;
 
-            tmp = calc * -(x);
-
-            forces_np[j].fx += tmp;
-
-            sum += tmp;
-
-            tmp = calc * -(y);
-
-            forces_np[j].fy += tmp;
-
-            sum += tmp;
-
-            tmp = calc * -(z);
-
-            forces_np[j].fz += tmp;
-
-            sum += tmp;
+            sum -= tmp;
         }
     }
 
@@ -239,8 +231,9 @@ void non_periodique(struct Particle *particle, int print)
 
 void periodique(struct Particle *particle, int print)
 {
-    double Sym[] = {0, 0, 0, 0, 0, L, 0, L, 0, 0, L, L, L, 0, 0, L, 0, L, L, L, 0, L, L, L, L, L, -L, L, -L, L, L, -L, -L, -L, L, L, -L, L, -L, -L, -L, L, -L, -L, -L, 0, 0, -L, 0, -L, 0, 0, -L, -L, -L, 0, 0, -L, 0, -L, -L, -L, 0, L, 0, -L, L, -L, 0, -L, 0, L, 0, L, -L, 0, -L, L, -L, L, 0};
+    // double Sym[] = {0, 0, 0, 0, 0, L, 0, L, 0, 0, L, L, L, 0, 0, L, 0, L, L, L, 0, L, L, L, L, L, -L, L, -L, L, L, -L, -L, -L, L, L, -L, L, -L, -L, -L, L, -L, -L, -L, 0, 0, -L, 0, -L, 0, 0, -L, -L, -L, 0, 0, -L, 0, -L, -L, -L, 0, L, 0, -L, L, -L, 0, -L, 0, L, 0, L, -L, 0, -L, L, -L, L, 0};
 
+    double Sym[] = {0, 0, 0, 0, 0, L, 0, L, 0, 0, L, L, L, 0, 0, L, 0, L, L, L, 0, L, L, L, L, L, -L, L, -L, L, L, -L, -L, -L, L, L, -L, L, -L, -L, -L, L, -L, -L, -L, 0, 0, -L, 0, -L, 0, 0, -L, -L, -L, 0, 0, -L, 0, -L, -L, -L, 0, L, 0, -2 * L, 0, -L, 0, -L, 0, L, 0, L, -L, 0, -L, L, -L, L, 0};
     double energie = 0;
 
     double forces = 0;
@@ -253,22 +246,27 @@ void periodique(struct Particle *particle, int print)
         forces_p[i].fz = 0;
     }
 
-    for (int p = 0; p < N_sym; p = p + 3)
+    for (int p = 0; p < (N_sym * 3); p = p + 3)
     {
         for (int i = 0; i < N_particules_total; i++)
         {
             for (int j = i + 1; j < N_particules_total; j++)
             {
 
-                double x = particle[i].x - particle[j].x + Sym[p];
-                double y = particle[i].y - particle[j].y + Sym[p + 1];
-                double z = particle[i].z - particle[j].z + Sym[p + 2];
+                double x = particle[j].x + Sym[p];
+                x = particle[i].x - x;
+                double y = particle[j].y + Sym[p + 1];
+                y = particle[i].y - y;
+                double z = particle[j].z + Sym[p + 2];
+                z = particle[i].z - z;
 
-                double rij = (x) * (x) + (y) * (y) + (z) * (z);
+                double rij2 = (x) * (x) + (y) * (y) + (z) * (z);
 
-                if (rij < (R_cut * R_cut))
+                if (rij2 <= (R_cut * R_cut))
                 {
-                    double r_frac = (r_etoile * r_etoile) / rij;
+                    double r_frac = (r_etoile * r_etoile) / rij2;
+
+                    // Calcul énergie
 
                     double r_frac3 = r_frac * r_frac * r_frac;
 
@@ -276,49 +274,47 @@ void periodique(struct Particle *particle, int print)
 
                     energie += (r_frac6 - 2 * r_frac3);
 
+                    // Calcul forces
+
                     double r_frac4 = r_frac * r_frac * r_frac * r_frac;
 
                     double r_frac7 = r_frac4 * r_frac * r_frac * r_frac;
 
                     double calc = -48 * epislon_etoile * (r_frac7 - r_frac4);
 
-                    double tmp;
+                    double tmp = calc * (x);
 
-                    tmp = calc * (x);
+                    forces_p[i].fx += tmp;
 
                     forces += tmp;
-                    forces_p[i].fx += tmp;
+
+                    forces_p[j].fx -= tmp;
+
+                    forces -= tmp;
 
                     tmp = calc * (y);
 
-                    forces += tmp;
                     forces_p[i].fy += tmp;
+
+                    forces += tmp;
+                    forces_p[j].fy -= tmp;
+
+                    forces -= tmp;
 
                     tmp = calc * (z);
 
-                    forces += tmp;
                     forces_p[i].fz += tmp;
 
-                    tmp = calc * -(x);
-
                     forces += tmp;
-                    forces_p[j].fx += tmp;
+                    forces_p[j].fz -= tmp;
 
-                    tmp = calc * -(y);
-
-                    forces += tmp;
-                    forces_p[j].fy += tmp;
-
-                    tmp = calc * -(z);
-
-                    forces += tmp;
-                    forces_p[j].fz += tmp;
+                    forces -= tmp;
                 }
             }
         }
     }
 
-    energie *= (4 * epislon_etoile) / 2;
+    energie *= (4 * epislon_etoile);
 
     if (print)
         printf("\033[38;5;40mPERIODIQUE\n\tEnergie = \033[37m%lf\033[38;5;54m J\n\t\033[38;5;40mSomme des forces = \033[37m%lf\033[38;5;54m N, \033[37m%e\033[38;5;54m N\n", energie, forces, forces);
